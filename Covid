@@ -1,0 +1,157 @@
+#Exploring my data
+
+SELECT *
+ FROM `database-first-project-377917.Portfolio.CovidDeath_data` 
+ WHERE continent is null
+ order by 2,3
+ 
+ 
+... SELECT*
+ ...FROM `database-first-project-377917.Portfolio.Vaccinations` 
+... order by 3,4
+
+...selecting my data
+
+SELECT location, date, total_cases,new_cases,total_deaths,population
+FROM `database-first-project-377917.Portfolio.CovidDeath_data`
+order by 1,2
+
+...Determine Total Cases Verses Total Deaths
+
+SELECT location, date, total_cases,total_deaths
+FROM `database-first-project-377917.Portfolio.CovidDeath_data`
+order by 1,2
+
+...Percentage Of Death
+
+SELECT continent, date, total_cases,total_deaths, (total_deaths/total_cases)*100 as DeathPercentage
+FROM `database-first-project-377917.Portfolio.CovidDeath_data`
+order by 1,2
+
+....Looking at Nigeria
+
+SELECT location, date, total_cases,total_deaths, (total_deaths/total_cases)*100 as DeathPercentage
+FROM `database-first-project-377917.Portfolio.CovidDeath_data`
+WHERE location like '%Nigeria%'
+order by 1,2
+
+....Analysis into the entire population verses Total cases of persons infected in Africa
+
+SELECT continent, date, population,total_cases,total_deaths, (total_cases/population)*100 as DeathPercentageinfected
+FROM `database-first-project-377917.Portfolio.CovidDeath_data`
+WHERE location like '%Africa%'
+order by 1,2
+
+.....The country with the most infection 
+
+SELECT location,population,Max(total_cases) as Highestinfectioncount, Max((total_cases/population))*100 as highestpopulationinfected
+FROM `database-first-project-377917.Portfolio.CovidDeath_data`
+GROUP BY population,location, continent
+order by highestpopulationinfected desc
+
+....Country with the Most Death
+
+SELECT location, Max(total_deaths)as TotalDeathcount
+FROM `database-first-project-377917.Portfolio.CovidDeath_data`
+WHERE continent is not null
+Group by location
+order by TotalDeathcount desc
+
+...AS per CONTINENT
+
+SELECT location,Max(total_deaths) as TotalDeathcount
+FROM `database-first-project-377917.Portfolio.CovidDeath_data`
+WHERE continent is null
+GROUP BY location
+order by TotalDeathcount desc
+
+---Global Percentage calculations
+
+SELECT sum(new_cases) as total_cases,sum(new_deaths)as total_deaths, sum(new_deaths)/sum(new_cases)*100 as Deathpercentage
+FROM `database-first-project-377917.Portfolio.CovidDeath_data`
+WHERE continent is not null
+group by date
+order by 1,2,3
+
+----JOINING COVID DEATH WITH VACCINATION TABLES
+
+SELECT *
+FROM `Portfolio.CovidDeath_data` covid
+JOIN `Portfolio.Vaccinations` vaccination
+ON covid.location = vaccination.location
+and covid.date = vaccination.date
+
+---Total population versus Vaccinations
+SELECT covid.continent,covid.location,covid.date,covid.population,vaccination.new_vaccinations,SUM(vaccination.new_vaccinations) OVER (partition by covid.location)
+FROM `Portfolio.CovidDeath_data` covid
+JOIN `Portfolio.Vaccinations` vaccination
+ON covid.location = vaccination.location
+and covid.date = vaccination.date
+WHERE covid.continent is not null
+ORDER BY 2,3
+
+---Total population versus Vaccinations with underlining ailments
+
+SELECT covid.continent,covid.location,covid.date,covid.population,vaccination.cardiovasc_death_rate,vaccination.diabetes_prevalence
+FROM `Portfolio.CovidDeath_data` covid
+JOIN `Portfolio.Vaccinations` vaccination
+ON covid.location = vaccination.location
+and covid.date = vaccination.date
+WHERE covid.continent is null
+ORDER BY 1,2,3
+
+SELECT covid.continent,covid.location,covid.date,covid.population,vaccination.new_vaccinations , Sum(vaccination.new_vaccinations) OVER (partition by covid.location Order by covid.location, covid.date) as Rollingpeoplevaccinated
+FROM `Portfolio.CovidDeath_data` covid
+JOIN `Portfolio.Vaccinations` vaccination
+ON covid.location = vaccination.location
+and covid.date = vaccination.date
+WHERE covid.continent is not null
+ORDER BY 2,3
+
+---CTE
+
+WITH CTE_peoplevaccinated (continent,location, Date, Population, New_vaccinations, Rollingpeoplevaccinated)
+as
+(
+  SELECT covid.continent,covid.location,covid.date,covid.population,vaccination.new_vaccinations, Sum(vaccination.new_vaccinations) OVER (partition by covid.location Order by covid.location, covid.date) as Rollingpeoplevaccinated
+FROM `Portfolio.CovidDeath_data` covid
+JOIN `Portfolio.Vaccinations` vaccination
+ON covid.location = vaccination.location
+and covid.date = vaccination.date
+WHERE covid.continent is not null
+ORDER BY 2,3
+)
+select*
+FROM CTE_peoplevaccinated
+
+
+CREATE TEMPORARY TABLE #percentagepopulationvaccinated AS
+(
+  continent nvarchar(200),
+  location nvarchar(200),
+  date datetime,
+  population numeric,
+  new_vaccinations numeric,
+  rollingpeoplevaccinated numeric
+  )
+  Insert into #percentagepopulationvaccinated
+ SELECT covid.continent,covid.location,covid.date,covid.population,vaccination.new_vaccinations,SUM(vaccination.new_vaccinations) OVER (partition by covid.location Order by covid.location,covid.date) as Rollingpeoplevaccinated
+FROM `Portfolio.CovidDeath_data` covid
+join `Portfolio.Vaccinations` vaccination
+   On covid.location = vaccination.location
+   and covid.date = vaccination.date
+WHERE covid.continent is not null
+ORDER BY 2,3
+
+select *
+from #percentagepopulationvaccinated
+
+Create View percentagepopulationvaccinated as
+SELECT covid.continent,covid.location,covid.date,covid.population,vaccination.new_vaccinations , Sum(vaccination.new_vaccinations) OVER (partition by covid.location Order by covid.location, covid.date) as Rollingpeoplevaccinated
+FROM `Portfolio.CovidDeath_data` covid
+JOIN `Portfolio.Vaccinations` vaccination
+ON covid.location = vaccination.location
+and covid.date = vaccination.date
+WHERE covid.continent is null
+ORDER BY 1,2,3
+
